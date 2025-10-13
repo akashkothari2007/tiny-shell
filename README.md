@@ -11,10 +11,10 @@ A simple command-line shell written in C for learning process management, memory
 ## Future Features (planned)
 - Command history  
 - Autocorrect / fuzzy command matching  
+- Custom commands to simplify tasks
 - Built-in commands (`cd`, `exit`, `help`)  
 - Pipelining and redirection (`|`, `>` , `<`)  
 - Colorized prompt 
--  
 
 ## Build & Run
 ```bash
@@ -28,3 +28,7 @@ gcc src/main.c -o build/tiny-shell
 src/        → source code
 build/      → compiled outputs
 README.md   → documentation
+```
+
+Based on Stephen Brennan’s “Write a Shell in C” tutorial,
+extended with my own features and improvements.
