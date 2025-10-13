@@ -2,12 +2,46 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <string.h> 
+#include <sys/wait.h>
+
+//SHELL BUILT IN COMMANDS
+int shell_cd(char **args) {
+    if (args[1] != NULL) {
+        if (chdir(args[1]) != 0) {
+            printf("errorr \n");
+        }
+    } else {
+        printf("wrong cd command \n");
+    }
+    return 1;
+}
+int shell_help(char **args) {
+    return 1;
+}
+int shell_exit(char **args) {
+    return 0;
+}
+char *builtin_str[] = {
+  "cd",
+  "help",
+  "exit"
+};
+int (*builtin_func[]) (char **) = {
+  &shell_cd,
+  &shell_help,
+  &shell_exit
+};
+int lsh_num_builtins() {
+  return sizeof(builtin_str) / sizeof(char *);
+}
+
+//READ LINE
 char *read_line(void)
  {
     int bufSize = 1024;
     int position = 0;
 
-    char *buffer = malloc(bufSize * sizeof(char));
+    char *buffer = malloc(bufSize * sizeof(char)); //allocate some space
     int c;
     if (!buffer) {
         printf("lsh: allocation error\n");;
@@ -15,18 +49,18 @@ char *read_line(void)
     }
     while (1) {
         c = getchar();
-        if (c == EOF || c == '\n') {
+        if (c == EOF || c == '\n') { //if end of line set it to \0 and return the line
             buffer[position] = '\0';
-            return buffer;
+            return buffer; 
         } else {
-            buffer[position] = c;
+            buffer[position] = c; //else next char add it to the line
         }
 
         position += 1;
 
         
 
-        if (position >= bufSize) {
+        if (position >= bufSize) { //reallocate some more space if exceeds buffer size
             bufSize += 1024;
             buffer = realloc(buffer, bufSize * sizeof(char));
             if (!buffer) {
@@ -37,11 +71,13 @@ char *read_line(void)
     }
     return 0;
  }
-#define LSH_TOK_DELIM " \t\r\n\a"
+
+ //SPLIT LINE INTO ARGUMENTS
+#define LSH_TOK_DELIM " \t\r\n\a" //where to split
 char **split_line(char *line) {
     int bufsize = 64; 
     int position = 0;
-    char **tokens = malloc(bufsize * sizeof(char*));
+    char **tokens = malloc(bufsize * sizeof(char*)); //allocate some size for tokens
     char *token;
 
     if (!tokens) {
@@ -49,42 +85,69 @@ char **split_line(char *line) {
         exit(EXIT_FAILURE);
     }
 
-    token = strtok(line, LSH_TOK_DELIM);
-    while (token != NULL) {
+    token = strtok(line, LSH_TOK_DELIM); 
+
+    while (token != NULL) { //split line with delimiters and add each token to tokens
         tokens[position] = token;
         position++;
 
         if (position >= bufsize) {
-        bufsize += 64;
-        tokens = realloc(tokens, bufsize * sizeof(char*));
-        if (!tokens) {
-            printf("lsh: allocation error\n");
-            exit(EXIT_FAILURE);
-        }
+            bufsize += 64;
+            tokens = realloc(tokens, bufsize * sizeof(char*)); //reallocate size if needed
+            if (!tokens) {
+                printf("lsh: allocation error\n");
+                exit(EXIT_FAILURE);
+            }
         }
 
         token = strtok(NULL, LSH_TOK_DELIM);
     }
-    tokens[position] = NULL;
+    tokens[position] = NULL; //last one to null (exec requires it)
     return tokens;
 }
-void shell_launch(char **args) {
-    
+
+//FORK AND RUN A PROGRAM W THE CHILD
+int shell_launch(char **args) {
+    pid_t pid, wpid;
+    int status;
+    pid = fork();
+    if (pid == 0) { //child
+        if (execvp(args[0], args) == -1) {
+            printf("Please enter a real command \n");
+        }
+        exit(EXIT_FAILURE);
+    } else if (pid < 0) {
+        printf("error forking \n");
+
+    } else {
+        do {
+            wpid = waitpid(pid, &status, WUNTRACED);
+        } while (!WIFEXITED(status) && !WIFSIGNALED(status));
+    }
+    return 1;
 }
 
+int shell_execute(char **args) {
+    return shell_launch(args);
+}
+
+//LOOPS: READS LINE --> PARSES LINE --> EXECUTES
 void shell_loop(void) {
-    char *line;
-    char **args;
-    line = read_line();
-    args = split_line(line);
+    int status = 1;
+    while (status) {
+        char *line;
+        char **args;
+        line = read_line();
+        args = split_line(line);
+        status = shell_execute(args);
 
-
-    free(line);
-    free(args);
+        free(line);
+        free(args);
+    }
 }
 
 
-
+//START THE SHELL!!!!
 int main(int argc, char **argv) {
     
     shell_loop();
