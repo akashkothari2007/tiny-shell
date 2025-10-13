@@ -42,6 +42,8 @@ void shell_loop(void) {
     char *line;
     line = read_line();
     printf("%c", *line);
+    
+    free(line);
 
 }
 
