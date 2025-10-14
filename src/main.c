@@ -4,7 +4,27 @@
 #include <string.h> 
 #include <sys/wait.h>
 
-//SHELL BUILT IN COMMANDS
+//SHELL BUILT IN COMMANDS LIST
+int shell_cd(char **args);
+int shell_help(char **args);
+int shell_exit(char **args);
+//list of built in commands strings (to match)
+char *builtin_str[] = {
+  "cd",
+  "help",
+  "exit"
+};
+int (*builtin_func[]) (char **) = {
+  &shell_cd,
+  &shell_help,
+  &shell_exit
+};
+int num_builtins() {
+  return sizeof(builtin_str) / sizeof(char *);
+}
+
+
+//BUILT IN FUNCTIONS
 int shell_cd(char **args) {
     if (args[1] != NULL) {
         if (chdir(args[1]) != 0) {
@@ -16,24 +36,19 @@ int shell_cd(char **args) {
     return 1;
 }
 int shell_help(char **args) {
+    printf("Welcome to tiny shell!! \n");
+    printf("Created by Akash Kothari based on Stephen Brennan's shell \n");
+    printf("Use the usual program names, but here are some built in ones!:\n");
+    for (int i = 0; i < num_builtins(); i++) {
+        printf("%s\n", builtin_str[i]);
+    }
     return 1;
 }
 int shell_exit(char **args) {
     return 0;
 }
-char *builtin_str[] = {
-  "cd",
-  "help",
-  "exit"
-};
-int (*builtin_func[]) (char **) = {
-  &shell_cd,
-  &shell_help,
-  &shell_exit
-};
-int lsh_num_builtins() {
-  return sizeof(builtin_str) / sizeof(char *);
-}
+
+
 
 //READ LINE
 char *read_line(void)
@@ -71,7 +86,6 @@ char *read_line(void)
     }
     return 0;
  }
-
  //SPLIT LINE INTO ARGUMENTS
 #define LSH_TOK_DELIM " \t\r\n\a" //where to split
 char **split_line(char *line) {
@@ -128,6 +142,18 @@ int shell_launch(char **args) {
 }
 
 int shell_execute(char **args) {
+    int i;
+
+    if (args[0] == NULL) { //empty command
+        printf("Wheres the command?? \n");
+        return 1;
+    }
+
+    for (i = 0; i < num_builtins(); i++) {
+        if (strcmp(args[0], builtin_str[i]) == 0) {
+            return (*builtin_func[i])(args);
+        }
+    }
     return shell_launch(args);
 }
 
