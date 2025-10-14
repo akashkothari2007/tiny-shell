@@ -4,6 +4,16 @@
 #include <string.h> 
 #include <sys/wait.h>
 
+#define RED     "\033[1;31m"
+#define GREEN   "\033[1;32m"
+#define YELLOW   "\033[1;33m"
+#define BLUE    "\033[1;34m"
+#define MAGENTA   "\033[1;35m"
+#define CYAN   "\033[1;36m"
+#define WHITE    "\033[1;37m"
+#define RESET   "\033[0m"
+
+
 //SHELL BUILT IN COMMANDS LIST
 int shell_cd(char **args);
 int shell_help(char **args);
@@ -28,19 +38,19 @@ int num_builtins() {
 int shell_cd(char **args) {
     if (args[1] != NULL) {
         if (chdir(args[1]) != 0) {
-            printf("errorr \n");
+            printf(MAGENTA "That doesnt exist stupid. \n" RESET);
         }
     } else {
-        printf("wrong cd command \n");
+        chdir("..");
     }
     return 1;
 }
 int shell_help(char **args) {
-    printf("Welcome to tiny shell!! \n");
+    printf(YELLOW "Welcome to tiny shell!! \n");
     printf("Created by Akash Kothari based on Stephen Brennan's shell \n");
-    printf("Use the usual program names, but here are some built in ones!:\n");
+    printf("Use the usual program names, but here are some built in ones!: \n" RESET);
     for (int i = 0; i < num_builtins(); i++) {
-        printf("%s\n", builtin_str[i]);
+        printf(WHITE "%s \n" RESET , builtin_str[i]);
     }
     return 1;
 }
@@ -59,7 +69,7 @@ char *read_line(void)
     char *buffer = malloc(bufSize * sizeof(char)); //allocate some space
     int c;
     if (!buffer) {
-        printf("lsh: allocation error\n");;
+        printf("allocation error\n");;
         exit(EXIT_FAILURE);
     }
     while (1) {
@@ -79,7 +89,7 @@ char *read_line(void)
             bufSize += 1024;
             buffer = realloc(buffer, bufSize * sizeof(char));
             if (!buffer) {
-                printf("lsh: reallocation error\n");
+                printf("reallocation error\n");
                 exit(EXIT_FAILURE);
             }
         }
@@ -95,7 +105,7 @@ char **split_line(char *line) {
     char *token;
 
     if (!tokens) {
-        printf("lsh: allocation error\n");
+        printf("allocation error\n");
         exit(EXIT_FAILURE);
     }
 
@@ -109,7 +119,7 @@ char **split_line(char *line) {
             bufsize += 64;
             tokens = realloc(tokens, bufsize * sizeof(char*)); //reallocate size if needed
             if (!tokens) {
-                printf("lsh: allocation error\n");
+                printf("allocation error\n");
                 exit(EXIT_FAILURE);
             }
         }
@@ -127,7 +137,7 @@ int shell_launch(char **args) {
     pid = fork();
     if (pid == 0) { //child
         if (execvp(args[0], args) == -1) {
-            printf("Please enter a real command \n");
+            printf(MAGENTA "Please enter a real command, or use help to see built in commands\n" RESET);
         }
         exit(EXIT_FAILURE);
     } else if (pid < 0) {
@@ -145,7 +155,7 @@ int shell_execute(char **args) {
     int i;
 
     if (args[0] == NULL) { //empty command
-        printf("Wheres the command?? \n");
+        printf(RED"Wheres the command??\n"RESET);
         return 1;
     }
 
@@ -160,7 +170,13 @@ int shell_execute(char **args) {
 //LOOPS: READS LINE --> PARSES LINE --> EXECUTES
 void shell_loop(void) {
     int status = 1;
+    char cwd[1024];
     while (status) {
+        if (getcwd(cwd, sizeof(cwd)) != NULL) {
+            printf(BLUE"TinyShell" RESET":" GREEN"%s" RESET "> ", cwd); // green directory path
+        } else {
+            printf("$ ");
+        }
         char *line;
         char **args;
         line = read_line();
@@ -175,8 +191,9 @@ void shell_loop(void) {
 
 //START THE SHELL!!!!
 int main(int argc, char **argv) {
-    
-    shell_loop();
+    chdir("/Users/akashkothari/Desktop"); //set starting directory
+
+    shell_loop(); //being the loop
 
     return 0;
 }
