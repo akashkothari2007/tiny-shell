@@ -210,12 +210,36 @@ char **split_line(char *line) {
     token = strtok(line, LSH_TOK_DELIM); 
 
     while (token != NULL) { //split line with delimiters and add each token to tokens
-        tokens[position] = token;
+        if (token[0] == '"' || token[0] == '\'') {
+            char quote = token[0];
+            token++; // skip opening quote
+
+            char merged[1024];
+            strcpy(merged, token);
+
+            // keep adding tokens until we find the closing quote
+            while (merged[strlen(merged) - 1] != quote) {
+                char *next = strtok(NULL, LSH_TOK_DELIM);
+                if (!next) break;
+                strcat(merged, " ");
+                strcat(merged, next);
+            }
+
+            // remove trailing quote
+            size_t len = strlen(merged);
+            if (len > 0 && merged[len - 1] == quote)
+                merged[len - 1] = '\0';
+
+            tokens[position] = strdup(merged);
+        } else {
+            tokens[position] = token;
+        }
+
         position++;
 
         if (position >= bufsize) {
             bufsize += 64;
-            tokens = realloc(tokens, bufsize * sizeof(char*)); //reallocate size if needed
+            tokens = realloc(tokens, bufsize * sizeof(char*));
             if (!tokens) {
                 printf("allocation error\n");
                 exit(EXIT_FAILURE);
