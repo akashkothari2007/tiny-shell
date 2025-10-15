@@ -224,7 +224,7 @@ char **split_line(char *line) {
                 strcat(merged, " ");
                 strcat(merged, next);
             }
-
+ 
             // remove trailing quote
             size_t len = strlen(merged);
             if (len > 0 && merged[len - 1] == quote)
