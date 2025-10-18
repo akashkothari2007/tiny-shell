@@ -65,6 +65,7 @@ char **autocomplete(char *prefix, int pos) {
     
 }
 
+int takeCommands = 1; //should take commands on launch
 //allow terminal to get real time handling for arrow key presses or tabs (so their not just chars)
 void enable_raw_mode() {
     struct termios term;
@@ -137,6 +138,7 @@ int shell_greet(char **args) {
 char *read_line(void)
  {
     //size of space to allocate for the line
+    
     int bufSize = 1024;
     int position = 0;
 
@@ -147,6 +149,7 @@ char *read_line(void)
         printf("allocation error\n");;
         exit(EXIT_FAILURE);
     }
+    while(takeCommands) {
     //keep looping getting next characters and deciding what to do with it, until user presses enter
     while (1) {
         //gets character
@@ -279,6 +282,7 @@ char *read_line(void)
             }
         }
     }
+    }
     return 0;
  }
  //SPLIT LINE INTO ARGUMENTS
@@ -348,6 +352,7 @@ char **split_line(char *line) {
 int shell_launch(char **args) {
     pid_t pid, wpid;
     int status;
+    takeCommands = 0;
     pid = fork();
     if (pid == 0) { //child
         if (execvp(args[0], args) == -1) {
@@ -362,6 +367,8 @@ int shell_launch(char **args) {
             wpid = waitpid(pid, &status, WUNTRACED);
         } while (!WIFEXITED(status) && !WIFSIGNALED(status));
     }
+    enable_raw_mode();
+    takeCommands = 1;
     return 1;
 }
 
@@ -423,7 +430,7 @@ void shell_loop(void) {
 //START THE SHELL!!!!
 int main(int argc, char **argv) {
 
-    chdir("/Users/akashkothari/Desktop"); //set starting directory
+    chdir(getenv("HOME")); //set starting directory
     enable_raw_mode(); //allow for tab and arrow key handling
     shell_loop(); //begin the loop
 
