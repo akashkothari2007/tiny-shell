@@ -7,6 +7,7 @@
 #include <termios.h>
 #include <dirent.h>
 #include <ctype.h>
+#include <math.h>
 
 //colors for text
 #define RED     "\033[1;31m"
@@ -17,6 +18,87 @@
 #define CYAN   "\033[1;36m"
 #define WHITE    "\033[1;37m"
 #define RESET   "\033[0m"
+
+
+
+
+
+
+
+int takeCommands = 1; //should take commands on launch
+//allow terminal to get real time handling for arrow key presses or tabs (so their not just chars)
+void enable_raw_mode() {
+    struct termios term;
+    tcgetattr(STDIN_FILENO, &term);
+    term.c_lflag &= ~(ICANON | ECHO);  // disable canonical mode & echo
+    tcsetattr(STDIN_FILENO, TCSANOW, &term);
+}
+//states
+int hiState = 0;
+
+//SHELL BUILT IN COMMANDS LIST
+int shell_cd(char **args);
+int shell_help(char **args);
+int shell_exit(char **args);
+int shell_greet(char **args);
+//list of built in commands strings (to match)
+char *builtin_str[] = {
+  "cd",
+  "help",
+  "exit",
+  "hi",
+  "hello",
+  "hola"
+};
+int (*builtin_func[]) (char **) = {
+  &shell_cd,
+  &shell_help,
+  &shell_exit,
+  &shell_greet,
+  &shell_greet,
+  &shell_greet
+};
+int num_builtins() {
+  return sizeof(builtin_str) / sizeof(char *);
+}
+
+//auto correct
+int levenshtein(const char *s1, const char *s2) {
+    int len1 = strlen(s1), len2 = strlen(s2);
+    int dp[len1 + 1][len2 + 1];
+
+    for (int i = 0; i <= len1; i++) dp[i][0] = i;
+    for (int j = 0; j <= len2; j++) dp[0][j] = j;
+
+    for (int i = 1; i <= len1; i++) {
+        for (int j = 1; j <= len2; j++) {
+            int cost = (tolower(s1[i - 1]) == tolower(s2[j - 1])) ? 0 : 1;
+            dp[i][j] = fmin(
+                fmin(dp[i - 1][j] + 1, dp[i][j - 1] + 1),
+                dp[i - 1][j - 1] + cost
+            );
+        }
+    }
+    return dp[len1][len2];
+}
+char *curLine;
+int scoreToTake = 2;
+char *autocorrect() {
+    int bestScore = 99;
+    char *str;
+    int score = 0;
+    for (int i = 0; i < num_builtins(); i++) {
+
+        
+        score = levenshtein(curLine, builtin_str[i]);
+        if (score <= bestScore) {
+            bestScore = score;
+            str = builtin_str[i];
+        }
+    }
+    if (bestScore <= scoreToTake) return str;
+    else return NULL;
+}
 
 //history
 char *history[1000];
@@ -64,44 +146,6 @@ char **autocomplete(char *prefix, int pos) {
     return file_names;
     
 }
-
-int takeCommands = 1; //should take commands on launch
-//allow terminal to get real time handling for arrow key presses or tabs (so their not just chars)
-void enable_raw_mode() {
-    struct termios term;
-    tcgetattr(STDIN_FILENO, &term);
-    term.c_lflag &= ~(ICANON | ECHO);  // disable canonical mode & echo
-    tcsetattr(STDIN_FILENO, TCSANOW, &term);
-}
-//states
-int hiState = 0;
-
-//SHELL BUILT IN COMMANDS LIST
-int shell_cd(char **args);
-int shell_help(char **args);
-int shell_exit(char **args);
-int shell_greet(char **args);
-//list of built in commands strings (to match)
-char *builtin_str[] = {
-  "cd",
-  "help",
-  "exit",
-  "hi",
-  "hello",
-  "hola"
-};
-int (*builtin_func[]) (char **) = {
-  &shell_cd,
-  &shell_help,
-  &shell_exit,
-  &shell_greet,
-  &shell_greet,
-  &shell_greet
-};
-int num_builtins() {
-  return sizeof(builtin_str) / sizeof(char *);
-}
-
 
 //BUILT IN FUNCTIONS
 int shell_cd(char **args) {
@@ -259,7 +303,7 @@ char *read_line(void)
             printf("\n");
             printf("\r\033[K");
             buffer[position] = '\0';
-            
+            curLine = buffer;
             return buffer; 
         } else {
             printf("%c", c);
@@ -348,6 +392,7 @@ char **split_line(char *line) {
     return tokens;
 }
 
+int shell_execute(char **args);
 //FORK AND RUN A PROGRAM W THE CHILD
 int shell_launch(char **args) {
     pid_t pid, wpid;
@@ -356,9 +401,32 @@ int shell_launch(char **args) {
     pid = fork();
     if (pid == 0) { //child
         if (execvp(args[0], args) == -1) {
-            printf(MAGENTA "Please enter a real command, or use help to see built in commands\n" RESET);
+            char *a = autocorrect();
+            
+            if (a != NULL) {
+                enable_raw_mode();
+                printf(YELLOW "Did you mean %s? (y/n)" RESET, a);
+
+     
+
+                char response = getchar();
+                printf("\n");
+                if (response == 'y' || response == 'Y') {
+                    args[0] = a;
+                    shell_execute(args);
+                    
+                } else {
+                    printf(MAGENTA "Please enter a real command, or use help to see built in commands.\n" RESET);
+                    exit(EXIT_FAILURE);
+                }
+
+            } else {
+                printf(MAGENTA "Please enter a real command, or use help to see built in commands\n" RESET);
+                exit(EXIT_FAILURE);
+            }
         }
-        exit(EXIT_FAILURE);
+
+        
     } else if (pid < 0) { //if error
         printf("error forking \n");
 
@@ -429,7 +497,6 @@ void shell_loop(void) {
 
 //START THE SHELL!!!!
 int main(int argc, char **argv) {
-
     chdir(getenv("HOME")); //set starting directory
     enable_raw_mode(); //allow for tab and arrow key handling
     shell_loop(); //begin the loop
